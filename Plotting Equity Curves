@@ -1,0 +1,58 @@
+pip install plotly.express
+pip install yfinance
+pip install pandas
+
+import plotly.express as px
+import yfinance as yf
+from datetime import date as dt
+import pandas as pd
+
+date_start_use = input("Start date (yyyy-mm-dd): ")
+input_string = input("Enter stocks separated by a space: ")
+stocks = list(input_string.split())
+
+def get_historical(s, date_start_use):
+    """
+    Function to get OHLC for ticker named s since starting date date_start_use
+    :param s: string
+    :param date_start_use: string
+    :return: dataframe
+    """
+    ticker_data = yf.Ticker(s)
+    today = dt.today()
+    return ticker_data.history(period="1d", start=date_start_use, end=today.strftime("%Y-%m-%d"))
+
+
+def historical_comparison(stocks, date_start_use):
+    df = []
+    for i in stocks:
+        data = get_historical(i, date_start_use)
+        data.insert(0, "Ticker", i)
+        df.append(data)
+    return pd.concat(df, axis=0)
+
+df = historical_comparison(stocks, date_start_use)
+
+
+
+px.line(df.reset_index(), x = 'Date', y = "Close", color="Ticker",
+             title="Equity Prices")
+
+
+df_clean = df.reset_index().pivot(index="Date", columns="Ticker", values="Close")
+df_clean = (df_clean.div(df_clean.iloc[0, :].values, axis=1)*100).reset_index()
+df_clean = df_clean.melt(id_vars="Date", var_name = "Ticker", value_name="RebasedClose")
+px.line(df_clean, x="Date", y="RebasedClose", color="Ticker")
+
+
+df_clean = df.reset_index().pivot(index="Date", columns="Ticker", values="Close")
+ticker_1=df_clean.iloc[:,0]
+ticker_2=df_clean.iloc[:,1]
+ticker_3=df_clean.iloc[:,2]
+ticker_1 = ticker_1.apply(lambda x: (x/df_clean.iloc[0,0]*100))
+ticker_2 = ticker_2.apply(lambda x: (x/df_clean.iloc[0,1]*100))
+ticker_3 = ticker_3.apply(lambda x: (x/df_clean.iloc[0,2]*100))
+df_clean = df.reset_index().pivot(index="Date", columns="Ticker", values="Close")
+pd.concat([ticker_1, ticker_2, ticker_3], axis=1)
+pd.concat([df_clean.iloc[:,i].apply(lambda x: (x/df_clean.iloc[0,i]*100)) for i in range(df_clean.shape[1])],
+         axis=1)
